@@ -5,6 +5,7 @@
 	    compiler:'test/index_min.js',
 	    publish:'test/release/index.js',
 	    include:['test/src/js/'],
+	    cssCompile:['test/src/css/stylus.styl'],
 	    template:['test/src/template/']
 	  }
 	],

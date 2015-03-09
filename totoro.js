@@ -18,6 +18,8 @@ var totoro=({
 	HTTP:null,
 	manifest:null,
 	colors:null,
+	STYLUS:null,
+	build:null,// 工程配置数据
 	manifestConfig:null,
 	serverHtml:'',//服务器页面
 	v:"1.0.1",
@@ -28,6 +30,7 @@ var totoro=({
 		this.PATH=require('path');
 		this.URL=require('url');
 		this.colors=require('./colors/safe');
+		this.STYLUS=require('stylus');
 		this.colors.setTheme({
 		  silly:'rainbow',
 		  input:'grey',
@@ -118,6 +121,9 @@ var totoro=({
 			manifest:function(){
 				_this.createManifest();
 			},
+			css:function(level){
+				_this.stylus(level);
+			},
 			help:function(){
 				msg.help("---------------------------------------");
 				msg.help(" gcc      压缩目标文件");
@@ -126,6 +132,7 @@ var totoro=({
 				msg.help(" check    js代码审核");
 				msg.help(" server   -port(端口号)\0启动内置调试服务器");
 				msg.help(" manifest 执行创建manifest离线配置文件");
+				msg.help(" css      执行css文件预编译");
 				msg.help(" v        获取版本号");
 				msg.help("---------------------------------------");
 			}
@@ -163,6 +170,7 @@ var totoro=({
 				fs=this.FS,
 				path=_this.PATH,
 				processArr=_this.PROCESSARR;
+		_this.build=build;
 		that.manifestConfig=build.manifest;
 		var _projects=build.projects,	//工程配置
 			_path=dir+'/',				//根路径
@@ -489,7 +497,6 @@ var totoro=({
 			});
 		};
 		var main=function(configFile){
-			//var config=readConfig(configFile);
 			var config=_this.manifestConfig;
 			var cacheList=config.cache;
 			var htmls,csss,jss,imgs,list,manifest;
@@ -516,7 +523,7 @@ var totoro=({
 				writeManifest(manifest,list,config);
 			}
 		};
-		main('./manifest.config.json');
+		main();
 	},
 	publish:function(){
 		var releaseArr=this.RELEASEARR,
@@ -536,6 +543,42 @@ var totoro=({
 					});
 				}
 			});
+		});
+	},
+	stylus:function(level){
+		var _this=this,file=this.build.projects,fs=this.FS,filePath;
+		var arr=[
+			{compress:false},{compress:true}
+		],obj;
+		if(level){
+			filePath=fs.readFileSync(level,"utf8");
+			_this.cssCompile(filePath,obj,e);
+		}else{
+			obj=arr[1];
+			for(var i=0,l=file.length;i<l;i++){
+				obj.src=file[i].cssCompile;
+				file[i].cssCompile.forEach(function(e,i){
+					filePath=fs.readFileSync(e,"utf8");
+					_this.cssCompile(filePath,obj,e);
+				});
+			}
+		}
+	},
+	cssCompile:function(file,obj,name){
+		var stylus=this.STYLUS,
+				fs=this.FS,
+				msg=this.msg(),
+				path=this.PATH,
+				suffix=path.extname(name),
+				dir=path.dirname(name);
+		name=path.basename(name,suffix);
+		stylus.render(file,obj,function(error,css){
+			if(error){
+				msg.log("css编译错误"+error,1);
+			}else{
+				fs.writeFileSync(dir+'/'+name+'-min.css',css);
+				msg.log("css预编译完成");
+			}
 		});
 	},
 	method:function(){
