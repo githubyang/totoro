@@ -8,7 +8,7 @@ Stylus完全支持标准的CSS语法，意味着你不需要一个CSS编译器�
 
 ## 实例
 
-  Stylus里面缩进和空格是有特殊意义的，用来代替"{}"。
+Stylus里面缩进和空格是有特殊意义的，用来代替"{}"。
  
     border-radius()
       -webkit-border-radius arguments
@@ -25,7 +25,7 @@ Stylus完全支持标准的CSS语法，意味着你不需要一个CSS编译器�
       border 1px solid
       border-radius 5px
 
- 	Stylus里面括号，冒号，和分号是可选的，我们可以把这个例子写成类似我们正常的CSS：
+Stylus里面括号，冒号，和分号是可选的，我们可以把这个例子写成类似我们正常的CSS：
  
     border-radius() {
       -webkit-border-radius: arguments;
@@ -45,7 +45,7 @@ Stylus完全支持标准的CSS语法，意味着你不需要一个CSS编译器�
       border-radius: 5px;
     }
 
-	Stylus无法编译空格和缩进不规则的代码，比如下面这些：
+Stylus无法编译空格和缩进不规则的代码，比如下面这些：
 
     border-radius() {
       -webkit-border-radius: arguments;
@@ -303,3 +303,74 @@ Rendering:
             color: blue
             a
               background-color: @color
+
+# 插值
+
+Stylus支持用`{}`包围表达式插入值,列如`-webkit-{'border' + '-radius'}` 等同于 `-webkit-border-radius`.
+
+适用于私有前缀属性扩展
+
+      vendor(prop, args)
+        -webkit-{prop} args
+        -moz-{prop} args
+        {prop} args
+
+      border-radius()
+        vendor('border-radius', arguments)
+      
+      box-shadow()
+        vendor('box-shadow', arguments)
+
+      button
+        border-radius 1px 2px / 3px 4px
+
+编译后:
+
+      button {
+        -webkit-border-radius: 1px 2px / 3px 4px;
+        -moz-border-radius: 1px 2px / 3px 4px;
+        border-radius: 1px 2px / 3px 4px;
+      }
+
+## 选择器插值
+
+插值可以用于选择器,列如为表格前5行指定高度:
+
+    table
+      for row in 1 2 3 4 5
+        tr:nth-child({row})
+          height: 10px * row
+
+编译后:
+
+    table tr:nth-child(1) {
+      height: 10px;
+    }
+    table tr:nth-child(2) {
+      height: 20px;
+    }
+    table tr:nth-child(3) {
+      height: 30px;
+    }
+    table tr:nth-child(4) {
+      height: 40px;
+    }
+    table tr:nth-child(5) {
+      height: 50px;
+    }
+    
+你可以将多个选择器组成字符串赋值给变量:
+
+    mySelectors = '#foo,#bar,.baz'
+    
+    {mySelectors}
+      background: #000
+
+编译后:
+
+    #foo,
+    #bar,
+    .baz {
+      background: #000;
+    }
+
