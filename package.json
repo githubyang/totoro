@@ -1,0 +1,28 @@
+{
+  "name": "totoro",
+  "version": "1.0.0",
+  "description": "前端集成解决方案",
+  "main": "totoro.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "bin": {
+    "totoro": "./totoro.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/githubyang/totoro"
+  },
+  "keywords": [
+    "前端工程"
+  ],
+  "author": "yang",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/githubyang/totoro/issues"
+  },
+  "homepage": "https://github.com/githubyang/totoro"
+}

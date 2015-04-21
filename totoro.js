@@ -1,12 +1,13 @@
+#! /usr/bin/env node
+// -*- js -*-
 /*
 * 名称: totoro
 * 描述: totoro是一个前端工程化解决方案 名字源于宫崎骏动画片龙猫
 * 日期: 2014.12.29
 * 编写: 单骑闯天下
 */
-
 var totoro=({
-	BUILD:'package.json1',// 工程配置文件
+	BUILD:'totoro.json',// 工程配置文件
 	ROOTDIR:'',// 工程根目录
 	FS:null,
 	PATH:null,
@@ -19,10 +20,36 @@ var totoro=({
 	manifest:null,
 	colors:null,
 	STYLUS:null,
+	flieList:[],
 	build:null,// 工程配置数据
 	manifestConfig:null,
 	serverHtml:'',//服务器页面
 	v:"1.0.1",
+	config:{
+		"projects":[{
+	    "server":"index.html",
+	    "target":"test/index.js",
+	    "compiler":"test/index_min.js",
+	    "publish":"test/release/index.js",
+	    "include":["test/src/js/"],
+	    "cssCompile":["test/src/css/stylus.styl"],
+	    "template":["test/src/template/"]
+	  }],
+		"manifest":{
+			"linkPrefix":"http://cdn.xxx.com/",
+			"manifestSuffix":"manifest",
+			"outputRoot":"./output/",
+			"cache":{
+				"offline":[
+					"index.html"
+				]
+			},
+			"network":["*"],
+			"fallback":[
+				"/fallback.html"
+			]
+		}
+	},
 	init:function(process,require){
 		this.ROOTDIR=process.argv[2]||__dirname;
 		this.HTTP=require('http');
@@ -51,7 +78,8 @@ var totoro=({
 				command=this.command(),
 				merger=this.merger;
 		msg.hello(this.ROOTDIR);
-		merger.call(this,this.ROOTDIR);
+		console.log(this.readdir('./test',1,'stylus'));
+		//merger.call(this,this.ROOTDIR);
 		process.stdin.resume();
 		process.stdin.setEncoding('utf8');
 		process.stdin.on('data',function(chunk){
@@ -93,6 +121,9 @@ var totoro=({
 		var _this=this,
 				msg=this.msg();
 		return {
+			init:function(prop){
+				//
+			},
 			reset:function(){
 				_this.PROCESSARR.forEach(function(tm){
 					clearInterval(tm);
@@ -121,8 +152,8 @@ var totoro=({
 			manifest:function(){
 				_this.createManifest();
 			},
-			css:function(level){
-				_this.stylus(level);
+			css:function(){
+				_this.stylus(arguments);
 			},
 			help:function(){
 				msg.help("---------------------------------------");
@@ -137,6 +168,43 @@ var totoro=({
 				msg.help("---------------------------------------");
 			}
 		};
+	},
+	// 广度优先搜索给定目录的所有文件 支持递归搜索 第二个参数为1开启递归搜索 第三个参数指定搜索给定的后缀文件
+	readdir:function(){
+		var fs=this.FS,
+				path=this.PATH,
+				_this=this,
+				result=!0;
+		;(function(para,args,suffix){
+			var dir=para?para:'.',
+					arg=arguments,
+					dirList=fs.readdirSync(dir);
+			dirList.forEach(function(e){
+				if(suffix&&path.extname(e)==('.'+suffix)){
+					if(_this.isFile(dir+'/'+e)=='file'){
+						_this.flieList.push(dir+'/'+e);
+						result=!0
+					}
+				}
+				(!suffix)&&(_this.isFile(dir+'/'+e)=='file')&&(_this.flieList.push(dir+'/'+e),result=!0);
+			});
+			(args)&&(
+				dirList.forEach(function(e){
+					(_this.isFile(dir+'/'+e)=='dir')&&(
+						arg.callee(dir+'/'+e,!0,suffix)
+					)
+				})
+			);
+		}(arguments[0],arguments[1],arguments[2]));
+		if(result)return(_this.flieList);
+	},
+	// 判断是文件还是目录
+	isFile:function(){
+		var fs=this.FS,
+				a=fs.statSync(arguments[0]).isFile(),
+				b=fs.statSync(arguments[0]).isDirectory(),
+				is=a?'file':(b?'dir':0);
+		return is;
 	},
 	/*
  	* 根据指定的目录遍历查找"package.json"，如果查找到，建立map进行变更监听
@@ -545,23 +613,52 @@ var totoro=({
 			});
 		});
 	},
-	stylus:function(level){
-		var _this=this,file=this.build.projects,fs=this.FS,filePath;
-		var arr=[
-			{compress:false},{compress:true}
-		],obj;
-		if(level){
-			filePath=fs.readFileSync(level,"utf8");
-			_this.cssCompile(filePath,obj,e);
-		}else{
-			obj=arr[1];
-			for(var i=0,l=file.length;i<l;i++){
-				obj.src=file[i].cssCompile;
-				file[i].cssCompile.forEach(function(e,i){
-					filePath=fs.readFileSync(e,"utf8");
-					_this.cssCompile(filePath,obj,e);
+	/*
+	 * 如果只有一个参数可以为('目录名或者文件名,如果两者都没找到,则寻找配置文件查找')
+	 * 如果有两个参数,第一个参数为(-0\-1,代表是否压缩),可以为('目录名或者文件名,如果两者都没找到,则寻找配置文件查找')
+	 */
+	stylus:function(para){
+		var _this=this,
+				fs=this.FS,
+				configFilePath,// css预编译的工程配置文件
+				arr=[{compress:false},{compress:true}],
+				fileData,
+				fileList;
+		var fn=function(p,c,s){
+			var is=_this.isFile(p);
+			if(is=='file'){
+				fileData=fs.readFileSync(p,"utf8");
+				_this.cssCompile(fileData,arr[c],p);
+			}
+			if(is=='dir'){
+				fileList=_this.readdir(p,0,s);
+				console.log(fileList)
+				fileList.forEach(function(e){
+					fileData=fs.readFileSync(e,"utf8");
+					fileData&&_this.cssCompile(fileData,arr[c],e);
 				});
 			}
+			if(is==0){
+				if(this.build){// 如果工程配置文件存在
+					configFilePath=this.build.projects;
+				}
+				fileList=_this.readdir('.',1,'stylus');
+				fileList.forEach(function(e){
+					fileData=fs.readFileSync(e,"utf8");
+					_this.cssCompile(fileData,arr[0],e);
+				});
+			}
+		};
+		if(para[0]&&!para[1]){
+			fn(para[0],1,'stylus');
+		}
+		if(para[0]&&para[1]){
+			var r=para[0].substr(0,1);
+			if(r!='-'){
+				return;
+			}
+			r=para[0].substr(1);
+			fn(para[1],r,'stylus');
 		}
 	},
 	cssCompile:function(file,obj,name){
@@ -577,7 +674,7 @@ var totoro=({
 				msg.log("css编译错误"+error,1);
 			}else{
 				fs.writeFileSync(dir+'/'+name+'-min.css',css);
-				msg.log("css预编译完成");
+				msg.log("css预编译完成:"+dir+'/'+name+'-min.css');
 			}
 		});
 	},
