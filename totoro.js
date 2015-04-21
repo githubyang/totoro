@@ -78,7 +78,7 @@ var totoro=({
 				command=this.command(),
 				merger=this.merger;
 		msg.hello(this.ROOTDIR);
-		console.log(this.readdir('./test',1,'stylus'));
+		//console.log(this.readdir('./test',1,'stylus'));
 		//merger.call(this,this.ROOTDIR);
 		process.stdin.resume();
 		process.stdin.setEncoding('utf8');
