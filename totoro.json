@@ -1,14 +1,16 @@
 {
-	"projects":[{
-	    "server":"index.html",
-	    "target":"test/index.js",
-	    "compiler":"test/index_min.js",
-	    "publish":"test/release/index.js",
-	    "include":["test/src/js/"],
-	    "cssCompile":["test/src/css/stylus.styl"],
-	    "template":["test/src/template/"]
+	"projects":{
+		"main":"./test/index.html",
+	    "server":"./index.html",
+	    "target":"./test/src/components",
+	    "output":"./test/output/",
+	    "compiler":"./test/index_min.js",
+	    "publish":"./test/release/index.js",
+	    "include":["./test/src/js/"],
+	    "cssCompile":["./test/src/css/stylus.styl"],
+	    "template":["./test/src/template/"]
 	  }
-	],
+	,
 	"manifest":{
 		"linkPrefix":"http://cdn.xxx.com/",
 		"manifestSuffix":"manifest",

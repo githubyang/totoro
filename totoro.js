@@ -6,6 +6,144 @@
 * 日期: 2014.12.29
 * 编写: 单骑闯天下
 */
+
+
+
+
+
+//遍历文件夹，获取所有文件夹里面的文件信息
+/*
+ * @param path 路径
+ *
+ */
+var compilerTag=require('./compiler');
+
+var fs=require('fs');
+function geFileList(path)
+{
+ var filesList = [];
+ readFile(path,filesList);
+ return filesList;
+}
+
+//遍历读取文件
+function readFile(path,filesList)
+{
+ files = fs.readdirSync(path);//需要用到同步读取
+ files.forEach(walk);
+ function walk(file)
+ { 
+  states = fs.statSync(path+'/'+file);   
+  if(states.isDirectory())
+  {
+   readFile(path+'/'+file,filesList);
+  }
+  else
+  { 
+   //创建一个对象保存信息
+   var obj = new Object();
+   obj.size = states.size;//文件大小，以字节为单位
+   obj.name = file;//文件名
+   obj.path = path+'/'+file; //文件绝对路径
+   filesList.push(obj);
+  }  
+ }
+}
+
+
+
+
+var sys = require("sys");
+var htmlparser = require("./htmlparser");
+
+
+
+function parseXhtml(path,fn){
+	var call=fn;
+// 	var jsp = require("./parse-js");
+// var process = require("./process");
+
+
+	// var findScript=function(obj,fn){
+	// 	obj.forEach(function(e,i){
+	// 		if(e.type=='script'){
+	// 			fn(e.children);
+	// 		}else{
+	// 			if(e.children){
+	// 				findScript(e.children,fn);
+	// 			}
+	// 		}
+	// 	});
+	// };
+	//var rawHtml = "<script>var a=2;function(){};</script>";
+	var handler = new htmlparser.DefaultHandler();
+	// console.log(handler,1)
+	var parser = new htmlparser.Parser(handler);
+	// console.log(parser,1)
+	
+	function callBack(err,data){
+	    if(err){  
+	        console.log("error:"+err);  
+	    }else{  
+	        parser.ParseComplete(data);
+			//sys.puts(sys.inspect(handler.dom, false, null));
+			// var fn=function(data){
+			// 	//console.log(data[0].data);
+			// 	var ast = jsp.parse(data[0].data);
+		 //        //console.log(ast)
+		 //        console.log(JSON.stringify(ast));
+			// };
+			//findScript(handler.dom,fn);
+			call(handler.dom);
+	    }
+	}  
+	fs.readFile(path,"utf-8",callBack);
+};
+function buildMainFile(path,output){
+	var callBack=function(arr){
+		//sys.puts(sys.inspect(arr, false, null));
+		var html='';
+		var createHTML=function(arr){
+			arr.forEach(function(e,i){
+				if(e.type=='directive'){
+					html+='<'+e.raw+'>';
+				}else if(e.type=='text'){
+					html+=e.raw;
+				}else if(e.type=='tag'&&e.name!='meta'){
+					html+='<'+e.raw+'>';
+					if(e.children){
+						createHTML(e.children);
+					}
+					html+='</'+e.raw+'>';
+				}
+				else if(e.type=='tag'&&e.name=='meta'){
+					html+='<'+e.raw+' />';
+				}
+				else if(e.type=='script'&&!e.children){
+					var src=e.attribs.src;
+					src.replace(/(\w+\.js)/g,function(e){
+						html+='<script src="./'+e+'"></script>';
+					});
+					
+					
+				}
+				else if(e.type=='script'&&e.children){
+					html+='<'+e.raw+'>';
+					if(e.children){
+						createHTML(e.children);
+					}
+					html+='</script>';
+				}
+			});
+		};
+		createHTML(arr);
+		console.log('首页入口文件生成:'+output+'index.html');
+		fs.writeFileSync(output+'index.html',html);
+	};
+	parseXhtml(path,callBack);
+}
+
+
 var totoro=({
 	BUILD:'totoro.json',// 工程配置文件
 	ROOTDIR:'',// 工程根目录
@@ -25,11 +163,14 @@ var totoro=({
 	manifestConfig:null,
 	serverHtml:'',//服务器页面
 	v:"1.0.1",
+	tagFileTarget:null,
+	output:null,
+	mainFile:'',
 	config:{
 		"projects":[{
 	    "server":"index.html",
 	    "target":"test/index.js",
-	    "compiler":"test/index_min.js",
+	    "compiler":["test/index_min.js",'test/a.js'],
 	    "publish":"test/release/index.js",
 	    "include":["test/src/js/"],
 	    "cssCompile":["test/src/css/stylus.styl"],
@@ -58,6 +199,7 @@ var totoro=({
 		this.URL=require('url');
 		this.colors=require('./colors/safe');
 		this.STYLUS=require('stylus');
+		
 		this.colors.setTheme({
 		  silly:'rainbow',
 		  input:'grey',
@@ -71,7 +213,7 @@ var totoro=({
 		  error:'red'
 		});
 		
-		this.UGLIFYJS=require('uglify-js');
+		this.UGLIFYJS=require('./node_modules/uglify-js/bin/uglifyJS.js');
 		this.PROCESS=require("child_process");
 
 		var msg=this.msg(),
@@ -79,7 +221,7 @@ var totoro=({
 				merger=this.merger;
 		msg.hello(this.ROOTDIR);
 		//console.log(this.readdir('./test',1,'stylus'));
-		//merger.call(this,this.ROOTDIR);
+		merger.call(this,this.ROOTDIR);
 		process.stdin.resume();
 		process.stdin.setEncoding('utf8');
 		process.stdin.on('data',function(chunk){
@@ -106,9 +248,10 @@ var totoro=({
 			},
 			hello:function(dir){
 				console.log(_this.colors.info('----------------------------------'));
-				console.log(_this.colors.warn('\0\0\0\0\0\0\0\0Welcome to Totoro'));
-				console.log(_this.colors.warn('\0\0\0\0\0\0\0\0\0\0\0\0\0v'+_this.v));
+				console.log(_this.colors.info('\0\0\0\0\0\0\0\0Welcome to Totoro'));
+				
 				console.log(_this.colors.info('\0\0\0\0\0\0前端工程化集成解决方案'));
+				console.log(_this.colors.info('\0\0\0\0\0\0\0\0\0\0\0\0\0v'+_this.v));
 				console.log(_this.colors.info('----------------------------------'));
 				console.log(_this.colors.info('\r\nTotoro初始化完毕开始工程目录监听:'+dir+'/\r\n'));
 			},
@@ -314,6 +457,12 @@ var totoro=({
 				msg.log("文件合并完成："+path.normalize(fileName));
 			});
 		};
+
+
+		var fs = require('fs')
+
+
+
 		
 		//定时监听_fileMap发现文件更新
 		var listen=function(){
@@ -338,37 +487,41 @@ var totoro=({
 		var _init=function(){
 			if(_this.PATH.normalize(_path+_this.BUILD)){
 				msg.log('发现工程配置文件：'+_this.PATH.normalize(_path+_this.BUILD));
-				console.log('工程配置文件:',_projects);
 			}
+			tagFileTarget=_projects.target;
+			output=_projects.output;
+			mainFile=_projects.main;
+			//console.log(geFileList(tagFileTarget))
 			//遍历工程
-			_projects.forEach(function(item){
-				_mainMap[item.target]={};
-				_mainMap[item.target].include=getFileList(item.include);
-				_mainMap[item.target].template=getFileList(item.template);
+			// _projects.forEach(function(item){
+			// 	_mainMap[item.target]={};
+			// 	_mainMap[item.target].include=getFileList(item.include);
+			// 	_mainMap[item.target].template=getFileList(item.template);
 
-				//一个文件可能在多个工程中被使用
-				_mainMap[item.target].include.forEach(function(_item){
-					_fileMap[_item]=_fileMap[_item]||{target:[],time:+_this.FS.statSync(getRealPath(_item)).mtime,type:'js'};
-					_fileMap[_item].target.push(item.target);
-				});
+			// 	//一个文件可能在多个工程中被使用
+			// 	_mainMap[item.target].include.forEach(function(_item){
+			// 		_fileMap[_item]=_fileMap[_item]||{target:[],time:+_this.FS.statSync(getRealPath(_item)).mtime,type:'js'};
+			// 		_fileMap[_item].target.push(item.target);
+			// 	});
 
-				_mainMap[item.target].template.forEach(function(_item){
-					_fileMap[_item]=_fileMap[_item]||{target:[],time:+_this.FS.statSync(getRealPath(_item)).mtime,type:'tmpl'};
-					_fileMap[_item].target.push(item.target);
-				});
+			// 	_mainMap[item.target].template.forEach(function(_item){
+			// 		_fileMap[_item]=_fileMap[_item]||{target:[],time:+_this.FS.statSync(getRealPath(_item)).mtime,type:'tmpl'};
+			// 		_fileMap[_item].target.push(item.target);
+			// 	});
 
-				_this.RELEASEARR.push({
-					compiler:getRealPath(item.compiler || item.target),
-					publish:item.publish?getRealPath(item.publish):'',
-					src:getRealPath(item.target),
-					server:getRealPath(item.server)
-				});
-			});
+			// 	_this.RELEASEARR.push({
+			// 		compiler:getRealPath(item.compiler || item.target),
+			// 		publish:item.publish?getRealPath(item.publish):'',
+			// 		src:getRealPath(item.target),
+			// 		server:getRealPath(item.server)
+			// 	});
+			// });
+			//console.log(_mainMap)
 			//初始化合并
-			for(var p in _mainMap){
-				merge(_mainMap[p].include[0],[p],'js',new Date());
-			}
-			listen();
+			// for(var p in _mainMap){
+			// 	//merge(_mainMap[p].include[0],[p],'js',new Date());
+			// }
+			//listen();
 		};
 		_init();
 	},
@@ -377,6 +530,21 @@ var totoro=({
  	* @param {Number} level 压缩级别 1-普通压缩，2-深度压缩
  	*/
 	compiler:function(level){
+		var list=geFileList(tagFileTarget);
+		var that=this;
+		var msg=this.msg();
+		var fn=function(o){
+			o.m.log('编译'+o.f.name+'文件成功,output:'+o.o+( (o.f.name).replace('.xhtml','.js') ),0);
+		}
+		list.forEach(function(e,i){
+			var obj={f:e,m:msg,o:output};
+			//parseXhtml(e.path);
+			compilerTag.call(obj,e.name,e.path,output,fn);
+		});
+
+		buildMainFile(mainFile,output);
+		
+		/*
 		var _this=this,
 				path=_this.PATH,
 				msg=_this.msg(),
@@ -384,10 +552,13 @@ var totoro=({
 				proc=_this.PROCESS,
 				releaseArr=_this.RELEASEARR,
 				uglifyjs=this.UGLIFYJS;
+		console.log(uglifyjs)
 		var exec=function(sFileName,cFileName,option){
+			//this.COMPILER
+			console.log(sFileName,cFileName,option)
 			msg.log("正在压缩文件："+path.normalize(sFileName));
 			try{
-				var compiler=proc.exec('uglifyjs '+sFileName+option,function(error,stdout,stderr){
+				var compiler=proc.exec('node uglifyjs '+sFileName+option,function(error,stdout,stderr){
 					if(error){
 						msg.log("文件压缩错误"+error,1);
 					}else{
@@ -402,9 +573,10 @@ var totoro=({
 			}
 		};
 		var option={1:"--compilation_level WHITESPACE_ONLY",2:' -m'}[level];
+		console.log(releaseArr)
 		releaseArr.forEach(function(item){
 			exec(item.src,item.compiler,option);
-		});
+		});*/
 	},
 	check:function(){
 		var _this=this,
@@ -588,8 +760,9 @@ var totoro=({
 					}
 				}
 				//创建 manifest 
-				writeManifest(manifest,list,config);
+				//writeManifest(manifest,list,config);
 			}
+			console.log(htmls,csss,jss,imgs,list,manifest)
 		};
 		main();
 	},
@@ -632,7 +805,6 @@ var totoro=({
 			}
 			if(is=='dir'){
 				fileList=_this.readdir(p,0,s);
-				console.log(fileList)
 				fileList.forEach(function(e){
 					fileData=fs.readFileSync(e,"utf8");
 					fileData&&_this.cssCompile(fileData,arr[c],e);
